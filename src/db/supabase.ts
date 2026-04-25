@@ -1,6 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { type FileError, type FileRejection, useDropzone } from 'react-dropzone'
-import { type SupabaseClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+
+// --- Supabase Client Initialization ---
+// These values come from your .env file (see .env.example)
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
+
+if (!supabaseUrl || !supabaseAnonKey) {
+    console.error(
+        '⚠️ Missing Supabase environment variables!\n' +
+        'Create a .env file with VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.\n' +
+        'See .env.example for reference.'
+    )
+}
+
+export const supabase = createClient(supabaseUrl ?? '', supabaseAnonKey ?? '')
 
 interface FileWithPreview extends File {
     preview?: string

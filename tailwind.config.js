@@ -1,4 +1,4 @@
-mport tailwindAnimate from 'tailwindcss-animate';
+import tailwindAnimate from 'tailwindcss-animate';
 import containerQuery from '@tailwindcss/container-queries';
 import intersect from 'tailwindcss-intersect';
 

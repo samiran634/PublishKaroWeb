@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import IntersectObserver from '@/components/common/IntersectObserver';
+import IntersectObserver from '@/components/common/IntersectObserveer';
 import { Toaster } from '@/components/ui/sonner';
 import { MainLayout } from '@/components/layouts/MainLayout';
 import { AuthProvider } from '@/contexts/AuthContext';

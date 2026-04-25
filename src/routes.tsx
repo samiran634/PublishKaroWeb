@@ -1,8 +1,8 @@
-mport Dashboard from './pages/Dashboard';
-import PapersPage from './pages/PapersPage';
+import Dashboard from './pages/Dashboard';
+import PaperPage from './pages/PaperPage';
 import PaperEditor from './pages/PaperEditor';
 import PublicationDashboard from './pages/PublicationDashboard';
-import ResourceInventory from './pages/ResourceInventory';
+import ResourceInventory from './pages/Resourceinventory';
 import SubmissionAgent from './pages/SubmissionAgent';
 import CredentialVault from './pages/CredentialVault';
 import ActivityLog from './pages/ActivityLog';
@@ -39,7 +39,7 @@ export const routes: RouteConfig[] = [
     {
         name: 'Research Papers',
         path: '/papers',
-        element: <PapersPage />,
+        element: <PaperPage />,
     },
     {
         name: 'Paper Editor',
