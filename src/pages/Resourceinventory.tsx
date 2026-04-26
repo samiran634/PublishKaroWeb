@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Search, FileText, Database, Code, StickyNote, File, ExternalLink, Trash2, Library } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Resource, ResourceType } from '@/types/types';
+import { useAuth } from '@/contexts/AuthContext';
 
 const resourceIcons: Record<ResourceType, typeof FileText> = {
   Reference: FileText,
@@ -44,6 +45,7 @@ const itemVariants = {
 };
 
 export default function ResourceInventory() {
+  const { user } = useAuth();
   const [resources, setResources] = useState<Resource[]>([]);
   const [filteredResources, setFilteredResources] = useState<Resource[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -149,6 +151,7 @@ export default function ResourceInventory() {
           description: resourceForm.description || null,
           tags: resourceForm.tags.length > 0 ? resourceForm.tags : null,
           file_url: fileUrl,
+          user_id: user?.id,
         }]);
 
       if (error) throw error;

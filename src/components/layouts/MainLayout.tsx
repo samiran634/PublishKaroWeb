@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { FileText, LayoutDashboard, Library, Send, BookOpen, Shield, Activity, ListTodo, Sparkles, Globe, Mail, Users, LogOut, User } from 'lucide-react';
+import { FileText, LayoutDashboard, Library, Send, BookOpen, Shield, Activity, ListTodo, Sparkles, Globe, Mail, Users, LogOut, User, Building2 } from 'lucide-react';
 import {
     Sidebar,
     SidebarContent,
@@ -48,9 +48,9 @@ const navigationItems = [
         icon: Sparkles,
     },
     {
-        title: 'Publication Dashboard',
+        title: 'Venues & Submissions',
         url: '/publications',
-        icon: BookOpen,
+        icon: Building2,
     },
     {
         title: 'Resource Inventory',

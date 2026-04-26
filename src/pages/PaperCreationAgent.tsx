@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sparkles, Loader2, CheckCircle2, BookOpen, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Resource } from '@/types/types';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface GeneratedPaper {
   abstract: string;
@@ -37,6 +38,7 @@ interface ScholarPaper {
 
 export default function PaperCreationAgent() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [resources, setResources] = useState<Resource[]>([]);
   const [selectedResources, setSelectedResources] = useState<Set<string>>(new Set());
   const [title, setTitle] = useState('');
@@ -190,6 +192,7 @@ export default function PaperCreationAgent() {
           keywords,
           authors: [],
           status: 'Draft',
+          user_id: user?.id,
         }])
         .select()
         .maybeSingle();

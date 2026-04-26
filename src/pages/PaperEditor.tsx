@@ -15,9 +15,12 @@ import { toast } from 'sonner';
 import PlagiarismChecker from '@/components/PlagiarismChecker';
 import type { Paper, PaperStatus, PaperVersion, PlagiarismCheck } from '@/types/types';
 
+import { useAuth } from '@/contexts/AuthContext';
+
 export default function PaperEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const isNew = id === 'new';
 
   const [paper, setPaper] = useState<Partial<Paper>>({
@@ -109,6 +112,7 @@ export default function PaperEditor() {
             keywords: paper.keywords || [],
             authors: paper.authors || [],
             status: paper.status || 'Draft',
+            user_id: user?.id,
           }])
           .select()
           .maybeSingle();

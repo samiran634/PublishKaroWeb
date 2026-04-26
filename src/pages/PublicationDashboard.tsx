@@ -12,8 +12,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Venue, VenueType, Priority, Submission, Paper } from '@/types/types';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function PublicationDashboard() {
+  const { user } = useAuth();
   const [venues, setVenues] = useState<Venue[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [papers, setPapers] = useState<Paper[]>([]);
@@ -64,7 +66,7 @@ export default function PublicationDashboard() {
       } else {
         const { error } = await supabase
           .from('venues')
-          .insert([venueForm]);
+          .insert([{ ...venueForm, user_id: user?.id }]);
 
         if (error) throw error;
         toast.success('Venue created successfully');
@@ -137,9 +139,89 @@ export default function PublicationDashboard() {
 
   return (
     <div className="space-y-8">
-      <div className="space-y-2">
-        <h2 className="text-3xl font-medium tracking-tight">Publication Dashboard</h2>
-        <p className="text-muted-foreground">Manage publication venues and track submissions</p>
+      <div className="flex items-center justify-between">
+        <div className="space-y-2">
+          <h2 className="text-3xl font-medium tracking-tight">Venues & Submissions</h2>
+          <p className="text-muted-foreground">Manage publication venues and track paper submissions</p>
+        </div>
+        <Dialog open={isVenueDialogOpen} onOpenChange={(open) => {
+          setIsVenueDialogOpen(open);
+          if (!open) resetVenueForm();
+        }}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Venue
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{editingVenue ? 'Edit Venue' : 'Add New Venue'}</DialogTitle>
+              <DialogDescription>
+                Configure a publication venue for paper submissions
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="venue-name">Name</Label>
+                <Input
+                  id="venue-name"
+                  value={venueForm.name}
+                  onChange={(e) => setVenueForm({ ...venueForm, name: e.target.value })}
+                  placeholder="e.g., Nature, IEEE Conference"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="venue-type">Type</Label>
+                <Select
+                  value={venueForm.type}
+                  onValueChange={(value) => setVenueForm({ ...venueForm, type: value as VenueType })}
+                >
+                  <SelectTrigger id="venue-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Journal">Journal</SelectItem>
+                    <SelectItem value="Conference">Conference</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="venue-url">Submission URL</Label>
+                <Input
+                  id="venue-url"
+                  value={venueForm.submission_url}
+                  onChange={(e) => setVenueForm({ ...venueForm, submission_url: e.target.value })}
+                  placeholder="https://..."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="venue-priority">Priority</Label>
+                <Select
+                  value={venueForm.priority}
+                  onValueChange={(value) => setVenueForm({ ...venueForm, priority: value as Priority })}
+                >
+                  <SelectTrigger id="venue-priority">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="High">High</SelectItem>
+                    <SelectItem value="Medium">Medium</SelectItem>
+                    <SelectItem value="Low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end gap-3 pt-4">
+                <Button variant="outline" onClick={() => setIsVenueDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={saveVenue}>
+                  {editingVenue ? 'Update' : 'Create'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Tabs defaultValue="venues" className="space-y-6">
@@ -153,84 +235,6 @@ export default function PublicationDashboard() {
             <p className="text-sm text-muted-foreground">
               {venues.length} venue{venues.length !== 1 ? 's' : ''} configured
             </p>
-            <Dialog open={isVenueDialogOpen} onOpenChange={(open) => {
-              setIsVenueDialogOpen(open);
-              if (!open) resetVenueForm();
-            }}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Venue
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>{editingVenue ? 'Edit Venue' : 'Add New Venue'}</DialogTitle>
-                  <DialogDescription>
-                    Configure a publication venue for paper submissions
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="venue-name">Name</Label>
-                    <Input
-                      id="venue-name"
-                      value={venueForm.name}
-                      onChange={(e) => setVenueForm({ ...venueForm, name: e.target.value })}
-                      placeholder="e.g., Nature, IEEE Conference"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="venue-type">Type</Label>
-                    <Select
-                      value={venueForm.type}
-                      onValueChange={(value) => setVenueForm({ ...venueForm, type: value as VenueType })}
-                    >
-                      <SelectTrigger id="venue-type">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Journal">Journal</SelectItem>
-                        <SelectItem value="Conference">Conference</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="venue-url">Submission URL</Label>
-                    <Input
-                      id="venue-url"
-                      value={venueForm.submission_url}
-                      onChange={(e) => setVenueForm({ ...venueForm, submission_url: e.target.value })}
-                      placeholder="https://..."
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="venue-priority">Priority</Label>
-                    <Select
-                      value={venueForm.priority}
-                      onValueChange={(value) => setVenueForm({ ...venueForm, priority: value as Priority })}
-                    >
-                      <SelectTrigger id="venue-priority">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="High">High</SelectItem>
-                        <SelectItem value="Medium">Medium</SelectItem>
-                        <SelectItem value="Low">Low</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex justify-end gap-3 pt-4">
-                    <Button variant="outline" onClick={() => setIsVenueDialogOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button onClick={saveVenue}>
-                      {editingVenue ? 'Update' : 'Create'}
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
           </div>
 
           {venues.length === 0 ? (

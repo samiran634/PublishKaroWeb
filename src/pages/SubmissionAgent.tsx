@@ -10,10 +10,12 @@ import { Separator } from '@/components/ui/separator';
 import { Send, AlertCircle, CheckCircle2, Loader2, ExternalLink, Pause, Play, Hand, X, Monitor } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Paper, Venue, SubmissionLog, AutomationTask } from '@/types/types';
+import { useAuth } from '@/contexts/AuthContext';
 
 type SubmissionStep = 'idle' | 'queued' | 'in_progress' | 'completed' | 'error';
 
 export default function SubmissionAgent() {
+  const { user } = useAuth();
   const [papers, setPapers] = useState<Paper[]>([]);
   const [venues, setVenues] = useState<Venue[]>([]);
   const [selectedPaperId, setSelectedPaperId] = useState<string>('');
@@ -155,6 +157,7 @@ export default function SubmissionAgent() {
           task_type: 'submission',
           status: 'queued',
           priority: 0,
+          user_id: user?.id,
         }])
         .select()
         .maybeSingle();

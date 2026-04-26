@@ -10,8 +10,10 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Eye, EyeOff, Pencil, Trash2, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Credential, Venue } from '@/types/types';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function CredentialVault() {
+  const { user } = useAuth();
   const [credentials, setCredentials] = useState<Credential[]>([]);
   const [venues, setVenues] = useState<Venue[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -72,6 +74,7 @@ export default function CredentialVault() {
             username: credentialForm.username,
             encrypted_password: encryptedPassword,
             portal_url: credentialForm.portal_url,
+            user_id: user?.id,
           }]);
 
         if (error) throw error;
