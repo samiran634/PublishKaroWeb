@@ -53,19 +53,9 @@ const navigationItems = [
         icon: Building2,
     },
     {
-        title: 'Resource Inventory',
-        url: '/resources',
-        icon: Library,
-    },
-    {
         title: 'Submission Agent',
         url: '/submission-agent',
         icon: Send,
-    },
-    {
-        title: 'Automation Queue',
-        url: '/automation-queue',
-        icon: ListTodo,
     },
     {
         title: 'Credential Vault',
@@ -73,29 +63,9 @@ const navigationItems = [
         icon: Shield,
     },
     {
-        title: 'Activity Log',
-        url: '/activity-log',
-        icon: Activity,
-    },
-    {
-        title: 'Publication Domains',
-        url: '/publication-domains',
-        icon: Globe,
-    },
-    {
         title: 'Email Monitor',
         url: '/email-monitor',
         icon: Mail,
-    },
-    {
-        title: 'AI Assistant',
-        url: '/ai-assistant',
-        icon: Sparkles,
-    },
-    {
-        title: 'Collaboration Hub',
-        url: '/collaboration',
-        icon: Users,
     },
 ];
 

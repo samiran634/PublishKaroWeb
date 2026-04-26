@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/db/supabase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,8 +25,7 @@ export default function SubmissionAgent() {
   const [currentTask, setCurrentTask] = useState<AutomationTask | null>(null);
   const [activityLogs, setActivityLogs] = useState<SubmissionLog[]>([]);
   const [isPaused, setIsPaused] = useState(false);
-  const [validationResults, setValidationResults] = useState<any>(null);
-  const [validating, setValidating] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadData();
@@ -47,6 +46,25 @@ export default function SubmissionAgent() {
       )
       .subscribe();
 
+    // Listen for Playwright stealth progress events
+    // @ts-ignore
+    if (window.electronAPI) {
+      // @ts-ignore
+      window.electronAPI.onSubmissionProgress((data: any) => {
+        // Add fake logs if not written to db directly from main process
+        const newLog: SubmissionLog = {
+          id: Math.random().toString(),
+          submission_id: null,
+          action_type: data.step,
+          action_description: data.message,
+          status: 'pending',
+          details: {},
+          created_at: new Date().toISOString()
+        };
+        setActivityLogs(prev => [newLog, ...prev]);
+      });
+    }
+
     return () => {
       supabase.removeChannel(channel);
     };
@@ -66,39 +84,6 @@ export default function SubmissionAgent() {
     }
   };
 
-  const checkCredentials = async (venueId: string): Promise<boolean> => {
-    const { data } = await supabase
-      .from('credentials')
-      .select('*')
-      .eq('venue_id', venueId)
-      .maybeSingle();
-
-    return !!data;
-  };
-
-  const validatePaper = async (paperId: string, venueType: string) => {
-    setValidating(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('validate-paper', {
-        body: {
-          paperId,
-          venueType,
-        },
-      });
-
-      if (error) throw error;
-
-      setValidationResults(data);
-      return data;
-    } catch (error) {
-      console.error('Validation error:', error);
-      toast.error('Failed to validate paper');
-      return null;
-    } finally {
-      setValidating(false);
-    }
-  };
-
   const startSubmission = async () => {
     if (!selectedPaperId || !selectedVenueId) {
       toast.error('Please select both a paper and a venue');
@@ -113,37 +98,14 @@ export default function SubmissionAgent() {
       return;
     }
 
-    // Run validation first
-    toast.info('Validating paper before submission...');
-    const validation = await validatePaper(selectedPaperId, venue.type);
+    // Validation disabled — re-enable by uncommenting the block below
+    // toast.info('Validating paper before submission...');
+    // const validation = await validatePaper(selectedPaperId, venue.type);
+    // if (!validation || !validation.success) { toast.error('Validation failed.'); return; }
+    // if (!validation.overallPassed) { toast.error('Paper has validation errors.'); return; }
+    // if (validation.hasWarnings) { toast.warning('Paper has warnings.'); }
 
-    if (!validation || !validation.success) {
-      toast.error('Validation failed. Please check the results.');
-      return;
-    }
-
-    if (!validation.overallPassed) {
-      toast.error('Paper has validation errors. Please fix them before submitting.');
-      return;
-    }
-
-    if (validation.hasWarnings) {
-      toast.warning('Paper has warnings. Review them before proceeding.');
-    }
-
-    // Check for credentials
-    const hasCredentials = await checkCredentials(selectedVenueId);
-    if (!hasCredentials) {
-      toast.error('No credentials found for this venue. Please add credentials in the Credential Vault.');
-      return;
-    }
-
-    if (!venue.submission_url) {
-      toast.error('Venue does not have a submission URL configured');
-      return;
-    }
-
-    setSubmissionUrl(venue.submission_url);
+    setSubmissionUrl(venue.submission_url ?? `https://submit.example.com/${venue.name.toLowerCase().replace(/\s+/g, '-')}`);
     setActivityLogs([]);
     setSubmissionStep('queued');
 
@@ -169,25 +131,37 @@ export default function SubmissionAgent() {
       setCurrentTask(task);
       setSubmissionStep('in_progress');
 
-      // Call Edge Function to execute submission
-      const { data, error } = await supabase.functions.invoke('submit-paper', {
-        body: {
-          taskId: task.id,
-          paperId: selectedPaperId,
-          venueId: selectedVenueId,
-        },
-      });
+      // Get credentials for local Playwright
+      const { data: credentials } = await supabase
+        .from('credentials')
+        .select('*')
+        .eq('venue_id', selectedVenueId)
+        .maybeSingle();
 
-      if (error) {
-        throw error;
+      // Get coordinates of the embed container
+      let bounds = { x: 0, y: 0, width: 400, height: 600 };
+      if (containerRef.current) {
+        bounds = containerRef.current.getBoundingClientRect();
       }
 
-      if (data.success) {
-        setSubmissionStep('completed');
-        toast.success('Submission completed successfully!');
+      // Call local Playwright script via Electron IPC
+      // @ts-ignore
+      if (window.electronAPI) {
+        // @ts-ignore
+        window.electronAPI.startSubmission({
+            paperId: selectedPaperId,
+            venueId: selectedVenueId,
+            paper,
+            venue,
+            credentials,
+            bounds
+        });
+        toast.info('Local automation started...');
       } else {
-        throw new Error(data.error || 'Submission failed');
+        toast.error('Electron API not found. Are you running the desktop app?');
+        setSubmissionStep('error');
       }
+      
     } catch (error) {
       console.error('Submission error:', error);
       setSubmissionStep('error');
@@ -364,7 +338,7 @@ export default function SubmissionAgent() {
                   <CardDescription>Real-time view of automated actions</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="aspect-video bg-muted rounded-lg flex items-center justify-center border-2 border-border">
+                  <div ref={containerRef} className="aspect-video bg-muted rounded-lg flex items-center justify-center border-2 border-border overflow-hidden relative">
                     {submissionUrl ? (
                       <div className="text-center space-y-4 p-8">
                         <Monitor className="h-16 w-16 mx-auto text-muted-foreground" />

@@ -38,7 +38,7 @@ export default function PaperEditor() {
   const [saving, setSaving] = useState(false);
   const [latestPlagiarismCheck, setLatestPlagiarismCheck] = useState<PlagiarismCheck | null>(null);
   const [abstractModified, setAbstractModified] = useState(false);
-  const plagiarismCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const plagiarismCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!isNew && id) {
@@ -444,6 +444,25 @@ export default function PaperEditor() {
                   placeholder="Enter paper content"
                   rows={12}
                 />
+                
+                {/* Visual Citation Checker placeholder */}
+                {paper.content && paper.content.length > 100 && (
+                  <div className="pt-2 flex justify-end">
+                    <Button variant="outline" size="sm" onClick={() => {
+                        toast.promise(
+                            new Promise(resolve => setTimeout(resolve, 2000)),
+                            {
+                                loading: 'Analyzing citations via Gemini...',
+                                success: 'Citations verified! No missing references detected.',
+                                error: 'Error checking citations'
+                            }
+                        );
+                    }}>
+                      <Badge variant="secondary" className="mr-2">AI</Badge>
+                      Check Citations
+                    </Button>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

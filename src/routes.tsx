@@ -2,16 +2,11 @@ import Dashboard from './pages/Dashboard';
 import PaperPage from './pages/PaperPage';
 import PaperEditor from './pages/PaperEditor';
 import PublicationDashboard from './pages/PublicationDashboard';
-import ResourceInventory from './pages/Resourceinventory';
+// Cleaned up for desktop edition
 import SubmissionAgent from './pages/SubmissionAgent';
 import CredentialVault from './pages/CredentialVault';
-import ActivityLog from './pages/ActivityLog';
-import AutomationQueue from './pages/AutomationQueue';
 import PaperCreationAgent from './pages/PaperCreationAgent';
-import PublicationDomains from './pages/PublicationDomains';
 import EmailMonitor from './pages/EmailMonitor';
-import AIAssistant from './pages/AIAssistant';
-import CollaborationHub from './pages/CollaborationHub';
 import Login from './pages/Login';
 import type { ReactNode } from 'react';
 
@@ -57,11 +52,6 @@ export const routes: RouteConfig[] = [
         element: <PublicationDashboard />,
     },
     {
-        name: 'Resource Inventory',
-        path: '/resources',
-        element: <ResourceInventory />,
-    },
-    {
         name: 'Submission Agent',
         path: '/submission-agent',
         element: <SubmissionAgent />,
@@ -72,33 +62,8 @@ export const routes: RouteConfig[] = [
         element: <CredentialVault />,
     },
     {
-        name: 'Activity Log',
-        path: '/activity-log',
-        element: <ActivityLog />,
-    },
-    {
-        name: 'Automation Queue',
-        path: '/automation-queue',
-        element: <AutomationQueue />,
-    },
-    {
-        name: 'Publication Domains',
-        path: '/publication-domains',
-        element: <PublicationDomains />,
-    },
-    {
         name: 'Email Monitor',
         path: '/email-monitor',
         element: <EmailMonitor />,
-    },
-    {
-        name: 'AI Assistant',
-        path: '/ai-assistant',
-        element: <AIAssistant />,
-    },
-    {
-        name: 'Collaboration Hub',
-        path: '/collaboration',
-        element: <CollaborationHub />,
     },
 ];

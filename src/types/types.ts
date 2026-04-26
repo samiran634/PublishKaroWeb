@@ -1,3 +1,12 @@
+export interface Profile {
+    id: string;
+    username: string | null;
+    full_name: string | null;
+    avatar_url: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
 export type PaperStatus = 'Draft' | 'Ready' | 'Submitted' | 'Under Review' | 'Accepted' | 'Rejected';
 export type SubmissionStatus = 'Submitted' | 'Under Review' | 'Accepted' | 'Rejected';
 export type VenueType = 'Journal' | 'Conference';
