@@ -17,12 +17,25 @@ export default defineConfig({
         }),
         electron({
             main: {
-                // Shortcut of `build.lib.entry`.
+                // Shortcut of `build.lib.entry`
                 entry: 'electron/main.ts',
+                onstart({ startup }) {
+                    // Pass GPU-disable flags directly to the Electron process so they take
+                    // effect before Chromium's GPU subprocess spawns (fixes Haswell crash)
+                    startup([
+                        '.',
+                        '--no-sandbox',
+                        '--disable-gpu',
+                        '--disable-gpu-compositing',
+                        '--disable-software-rasterizer',
+                        '--disable-gpu-sandbox',
+                        '--in-process-gpu',
+                    ])
+                },
             },
             preload: {
-                // Shortcut of `build.rollupOptions.input`.
-                // Preload scripts may contain Web assets, so use the `build.rollupOptions.input` instead `build.lib.entry`.
+                // Shortcut of `build.rollupOptions.input`
+                // Preload scripts may contain Web assets, so use the `build.rollupOptions.input` instead `build.lib.entry`
                 input: path.join(__dirname, 'electron/preload.ts'),
             },
             // Ployfill the Electron and Node.js built-in modules for Renderer process.

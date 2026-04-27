@@ -2094,11 +2094,19 @@ async function runSubmission(data, sendProgress) {
 node_module.createRequire(typeof document === "undefined" ? require("url").pathToFileURL(__filename).href : _documentCurrentScript && _documentCurrentScript.tagName.toUpperCase() === "SCRIPT" && _documentCurrentScript.src || new URL("main.js", document.baseURI).href);
 const __dirname$1 = path.dirname(node_url.fileURLToPath(typeof document === "undefined" ? require("url").pathToFileURL(__filename).href : _documentCurrentScript && _documentCurrentScript.tagName.toUpperCase() === "SCRIPT" && _documentCurrentScript.src || new URL("main.js", document.baseURI).href));
 process.env.APP_ROOT = path.join(__dirname$1, "..");
+electron.app.disableHardwareAcceleration();
+electron.app.commandLine.appendSwitch("disable-gpu");
+electron.app.commandLine.appendSwitch("disable-software-rasterizer");
+electron.app.commandLine.appendSwitch("disable-gpu-compositing");
+electron.app.commandLine.appendSwitch("disable-gpu-rasterization");
+electron.app.commandLine.appendSwitch("disable-gpu-sandbox");
+electron.app.commandLine.appendSwitch("no-sandbox");
 const VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
 const MAIN_DIST = path.join(process.env.APP_ROOT, "dist-electron");
 const RENDERER_DIST = path.join(process.env.APP_ROOT, "dist");
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, "public") : RENDERER_DIST;
 let win;
+let embeddedView = null;
 function createWindow() {
   win = new electron.BrowserWindow({
     width: 1280,
@@ -2149,6 +2157,58 @@ electron.app.whenReady().then(() => {
     await runSubmission(data, (progressMsg) => {
       event.sender.send("submission-progress", progressMsg);
     });
+  });
+  electron.ipcMain.on("embed-webcontents", (event, payload) => {
+    const mainWindow = electron.BrowserWindow.fromWebContents(event.sender);
+    if (!mainWindow) return;
+    if (embeddedView) {
+      mainWindow.contentView.removeChildView(embeddedView);
+      embeddedView.webContents.close();
+      embeddedView = null;
+    }
+    mainWindow.getContentBounds();
+    const { url, bounds } = payload;
+    const absoluteBounds = {
+      x: Math.round(bounds.x),
+      y: Math.round(bounds.y),
+      width: Math.round(bounds.width),
+      height: Math.round(bounds.height)
+    };
+    console.log(`[Main] Embedding WebContentsView at`, absoluteBounds, "loading:", url);
+    embeddedView = new electron.WebContentsView({
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true
+      }
+    });
+    mainWindow.contentView.addChildView(embeddedView);
+    embeddedView.setBounds(absoluteBounds);
+    embeddedView.webContents.loadURL(url);
+    embeddedView.webContents.on("did-finish-load", () => {
+      event.sender.send("webcontents-status", { status: "loaded", url: embeddedView == null ? void 0 : embeddedView.webContents.getURL() });
+    });
+    embeddedView.webContents.on("did-fail-load", (_e, code, desc) => {
+      event.sender.send("webcontents-status", { status: "error", error: desc });
+    });
+  });
+  electron.ipcMain.on("destroy-webcontents", (event) => {
+    const mainWindow = electron.BrowserWindow.fromWebContents(event.sender);
+    if (!mainWindow || !embeddedView) return;
+    mainWindow.contentView.removeChildView(embeddedView);
+    embeddedView.webContents.close();
+    embeddedView = null;
+    console.log("[Main] WebContentsView destroyed");
+    event.sender.send("webcontents-status", { status: "destroyed" });
+  });
+  electron.ipcMain.on("resize-webcontents", (_event, bounds) => {
+    if (embeddedView) {
+      embeddedView.setBounds({
+        x: Math.round(bounds.x),
+        y: Math.round(bounds.y),
+        width: Math.round(bounds.width),
+        height: Math.round(bounds.height)
+      });
+    }
   });
 });
 exports.MAIN_DIST = MAIN_DIST;

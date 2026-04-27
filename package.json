@@ -3,7 +3,7 @@
     "version": "0.0.1",
     "main": "dist-electron/main.js",
     "scripts": {
-        "dev": "vite",
+        "dev": "LIBVA_DRIVER_NAME=i965 ELECTRON_EXTRA_LAUNCH_ARGS='--disable-gpu --no-sandbox --disable-software-rasterizer --disable-gpu-compositing --in-process-gpu' vite",
         "build": "vite build",
         "preview": "vite preview",
         "lint": "npx biome lint"
