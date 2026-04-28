@@ -4,8 +4,9 @@ const electron = require("electron");
 const fs = require("node:fs");
 const node_url = require("node:url");
 const path = require("node:path");
-const require$$0$1 = require("tty");
-const require$$1 = require("util");
+const require$$1 = require("tty");
+const require$$1$1 = require("util");
+const require$$0$1 = require("os");
 var _documentCurrentScript = typeof document !== "undefined" ? document.currentScript : null;
 function _interopNamespaceDefault(e) {
   const n = Object.create(null, { [Symbol.toStringTag]: { value: "Module" } });
@@ -521,13 +522,128 @@ function requireBrowser() {
   return browser.exports;
 }
 var node = { exports: {} };
+var hasFlag;
+var hasRequiredHasFlag;
+function requireHasFlag() {
+  if (hasRequiredHasFlag) return hasFlag;
+  hasRequiredHasFlag = 1;
+  hasFlag = (flag, argv = process.argv) => {
+    const prefix = flag.startsWith("-") ? "" : flag.length === 1 ? "-" : "--";
+    const position = argv.indexOf(prefix + flag);
+    const terminatorPosition = argv.indexOf("--");
+    return position !== -1 && (terminatorPosition === -1 || position < terminatorPosition);
+  };
+  return hasFlag;
+}
+var supportsColor_1;
+var hasRequiredSupportsColor;
+function requireSupportsColor() {
+  if (hasRequiredSupportsColor) return supportsColor_1;
+  hasRequiredSupportsColor = 1;
+  const os = require$$0$1;
+  const tty = require$$1;
+  const hasFlag2 = requireHasFlag();
+  const { env } = process;
+  let forceColor;
+  if (hasFlag2("no-color") || hasFlag2("no-colors") || hasFlag2("color=false") || hasFlag2("color=never")) {
+    forceColor = 0;
+  } else if (hasFlag2("color") || hasFlag2("colors") || hasFlag2("color=true") || hasFlag2("color=always")) {
+    forceColor = 1;
+  }
+  if ("FORCE_COLOR" in env) {
+    if (env.FORCE_COLOR === "true") {
+      forceColor = 1;
+    } else if (env.FORCE_COLOR === "false") {
+      forceColor = 0;
+    } else {
+      forceColor = env.FORCE_COLOR.length === 0 ? 1 : Math.min(parseInt(env.FORCE_COLOR, 10), 3);
+    }
+  }
+  function translateLevel(level) {
+    if (level === 0) {
+      return false;
+    }
+    return {
+      level,
+      hasBasic: true,
+      has256: level >= 2,
+      has16m: level >= 3
+    };
+  }
+  function supportsColor(haveStream, streamIsTTY) {
+    if (forceColor === 0) {
+      return 0;
+    }
+    if (hasFlag2("color=16m") || hasFlag2("color=full") || hasFlag2("color=truecolor")) {
+      return 3;
+    }
+    if (hasFlag2("color=256")) {
+      return 2;
+    }
+    if (haveStream && !streamIsTTY && forceColor === void 0) {
+      return 0;
+    }
+    const min = forceColor || 0;
+    if (env.TERM === "dumb") {
+      return min;
+    }
+    if (process.platform === "win32") {
+      const osRelease = os.release().split(".");
+      if (Number(osRelease[0]) >= 10 && Number(osRelease[2]) >= 10586) {
+        return Number(osRelease[2]) >= 14931 ? 3 : 2;
+      }
+      return 1;
+    }
+    if ("CI" in env) {
+      if (["TRAVIS", "CIRCLECI", "APPVEYOR", "GITLAB_CI", "GITHUB_ACTIONS", "BUILDKITE"].some((sign) => sign in env) || env.CI_NAME === "codeship") {
+        return 1;
+      }
+      return min;
+    }
+    if ("TEAMCITY_VERSION" in env) {
+      return /^(9\.(0*[1-9]\d*)\.|\d{2,}\.)/.test(env.TEAMCITY_VERSION) ? 1 : 0;
+    }
+    if (env.COLORTERM === "truecolor") {
+      return 3;
+    }
+    if ("TERM_PROGRAM" in env) {
+      const version = parseInt((env.TERM_PROGRAM_VERSION || "").split(".")[0], 10);
+      switch (env.TERM_PROGRAM) {
+        case "iTerm.app":
+          return version >= 3 ? 3 : 2;
+        case "Apple_Terminal":
+          return 2;
+      }
+    }
+    if (/-256(color)?$/i.test(env.TERM)) {
+      return 2;
+    }
+    if (/^screen|^xterm|^vt100|^vt220|^rxvt|color|ansi|cygwin|linux/i.test(env.TERM)) {
+      return 1;
+    }
+    if ("COLORTERM" in env) {
+      return 1;
+    }
+    return min;
+  }
+  function getSupportLevel(stream) {
+    const level = supportsColor(stream, stream && stream.isTTY);
+    return translateLevel(level);
+  }
+  supportsColor_1 = {
+    supportsColor: getSupportLevel,
+    stdout: translateLevel(supportsColor(true, tty.isatty(1))),
+    stderr: translateLevel(supportsColor(true, tty.isatty(2)))
+  };
+  return supportsColor_1;
+}
 var hasRequiredNode;
 function requireNode() {
   if (hasRequiredNode) return node.exports;
   hasRequiredNode = 1;
   (function(module2, exports$1) {
-    const tty = require$$0$1;
-    const util = require$$1;
+    const tty = require$$1;
+    const util = require$$1$1;
     exports$1.init = init;
     exports$1.log = log;
     exports$1.formatArgs = formatArgs;
@@ -541,7 +657,7 @@ function requireNode() {
     );
     exports$1.colors = [6, 2, 3, 4, 5, 1];
     try {
-      const supportsColor = require("supports-color");
+      const supportsColor = requireSupportsColor();
       if (supportsColor && (supportsColor.stderr || supportsColor).level >= 2) {
         exports$1.colors = [
           20,
@@ -2116,6 +2232,14 @@ const VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
 const MAIN_DIST = path.join(process.env.APP_ROOT, "dist-electron");
 const RENDERER_DIST = path.join(process.env.APP_ROOT, "dist");
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, "public") : RENDERER_DIST;
+function resolveWindowIcon() {
+  const basePath = process.env.VITE_PUBLIC || "";
+  const iconCandidates = [
+    path.join(basePath, "favicon.ico"),
+    path.join(basePath, "favicon.png")
+  ];
+  return iconCandidates.find((candidate) => fs__namespace.existsSync(candidate));
+}
 let win;
 let embeddedView = null;
 let embeddedOwnerId = null;
@@ -2214,11 +2338,12 @@ function destroyEmbeddedView(mainWindow, notify = true) {
   embeddedOwnerId = null;
 }
 function createWindow() {
+  const windowIcon = resolveWindowIcon();
   win = new electron.BrowserWindow({
     width: 1280,
     height: 800,
     title: "PublishKaro",
-    icon: path.join(process.env.VITE_PUBLIC || "", "favicon.ico"),
+    ...windowIcon ? { icon: windowIcon } : {},
     webPreferences: {
       preload: path.join(__dirname$1, "preload.mjs"),
       nodeIntegration: false,

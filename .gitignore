@@ -3,3 +3,9 @@ node_modules
 .vscode
 .idea
 .DS_Store
+.npm-cache
+.vercel
+dist
+release
+
+.vercel

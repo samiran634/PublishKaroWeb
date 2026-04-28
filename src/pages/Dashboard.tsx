@@ -6,19 +6,24 @@ import {
   BookOpen,
   Bot,
   Gauge,
+  Loader2,
   Mail,
+  Sparkles,
   Target,
   TrendingUp,
   Zap,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 import { AnimatedCounter } from '@/components/ui/animated-counter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { FloatingShapes } from '@/components/ui/floating-shapes';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/db/supabase';
+import { seedDemoData } from '@/lib/demo-data';
 import { classifyEmailAlert } from '@/lib/email-monitoring';
 import {
   buildOptimalSubmissionPlan,
@@ -50,6 +55,7 @@ const itemVariants = {
 const STALLED_DRAFT_DAYS = 14;
 
 export default function Dashboard() {
+  const { user } = useAuth();
   const [papers, setPapers] = useState<Paper[]>([]);
   const [venues, setVenues] = useState<Venue[]>([]);
   const [fitScores, setFitScores] = useState<VenueFitScoreRecord[]>([]);
@@ -57,9 +63,10 @@ export default function Dashboard() {
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
   const [emailStatuses, setEmailStatuses] = useState<EmailStatus[]>([]);
   const [loading, setLoading] = useState(true);
+  const [seedingDemo, setSeedingDemo] = useState(false);
 
   useEffect(() => {
-    loadData();
+    void loadData();
   }, []);
 
   const loadData = async () => {
@@ -91,6 +98,31 @@ export default function Dashboard() {
       console.error('Dashboard load error:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLoadDemoData = async () => {
+    if (!user) {
+      toast.error('Please sign in before loading the demo dataset.');
+      return;
+    }
+
+    setSeedingDemo(true);
+    try {
+      const result = await seedDemoData(supabase, user);
+      await loadData();
+
+      if (result.warnings.length > 0) {
+        console.warn('Demo data warnings:', result.warnings);
+        toast.warning(`${result.summary} Some optional demo sections need a quick manual check.`);
+      } else {
+        toast.success(result.summary);
+      }
+    } catch (error) {
+      console.error('Demo data seed error:', error);
+      toast.error('Failed to load the demo dataset.');
+    } finally {
+      setSeedingDemo(false);
     }
   };
 
@@ -178,13 +210,25 @@ export default function Dashboard() {
       <FloatingShapes />
       <motion.div className="space-y-12" initial="hidden" animate="visible" variants={containerVariants}>
         <motion.div variants={itemVariants} className="space-y-4">
-          <div className="space-y-2">
-            <h2 className="text-4xl font-light tracking-tight">Command Centre</h2>
-            <p className="text-muted-foreground text-lg max-w-4xl">
-              Researchers should spend more time creating knowledge, not managing paperwork. This
-              dashboard keeps the best submission order, workflow bottlenecks, and publication emails
-              visible in one place.
-            </p>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="space-y-2">
+              <h2 className="text-4xl font-light tracking-tight">Command Centre</h2>
+              <p className="text-muted-foreground text-lg max-w-4xl">
+                Researchers should spend more time creating knowledge, not managing paperwork. This
+                dashboard keeps the best submission order, workflow bottlenecks, and publication emails
+                visible in one place.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={handleLoadDemoData} disabled={seedingDemo}>
+                {seedingDemo ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="mr-2 h-4 w-4" />
+                )}
+                Load demo data
+              </Button>
+            </div>
           </div>
 
           {topRecommendation && (
@@ -454,6 +498,14 @@ export default function Dashboard() {
                   <Link to="/papers">
                     <Button variant="outline" size="lg">Create paper</Button>
                   </Link>
+                  <Button variant="outline" size="lg" onClick={handleLoadDemoData} disabled={seedingDemo}>
+                    {seedingDemo ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="mr-2 h-4 w-4" />
+                    )}
+                    Load demo data
+                  </Button>
                   <Link to="/paper-creation">
                     <Button size="lg">Use AI agent</Button>
                   </Link>

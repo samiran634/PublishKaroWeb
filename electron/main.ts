@@ -21,6 +21,16 @@ export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
 
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 'public') : RENDERER_DIST
 
+function resolveWindowIcon() {
+  const basePath = process.env.VITE_PUBLIC || ''
+  const iconCandidates = [
+    path.join(basePath, 'favicon.ico'),
+    path.join(basePath, 'favicon.png'),
+  ]
+
+  return iconCandidates.find((candidate) => fs.existsSync(candidate))
+}
+
 let win: BrowserWindow | null
 // Track the active embedded WebContentsView (venue portal)
 let embeddedView: WebContentsView | null = null
@@ -142,11 +152,13 @@ function destroyEmbeddedView(mainWindow?: BrowserWindow | null, notify = true) {
 }
 
 function createWindow() {
+  const windowIcon = resolveWindowIcon()
+
   win = new BrowserWindow({
     width: 1280,
     height: 800,
     title: 'PublishKaro',
-    icon: path.join(process.env.VITE_PUBLIC || '', 'favicon.ico'),
+    ...(windowIcon ? { icon: windowIcon } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
       nodeIntegration: false,

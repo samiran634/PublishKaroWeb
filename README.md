@@ -37,6 +37,55 @@
 
 Vite, TypeScript, React, Supabase
 
+## Deployment Modes
+
+### Web prototype on Vercel
+
+Use this when you want reviewers to click a link and explore the non-Electron parts immediately.
+
+```
+# Build command
+npm run build
+
+# Output directory
+dist
+```
+
+The repo now includes `vercel.json` so React Router routes rewrite back to `index.html`.
+
+Important limitations for the Vercel prototype:
+
+```
+# Electron-only features will not work on Vercel:
+# - embedded venue portal via <webview>
+# - local PDF picker from the desktop filesystem
+# - automatic file attachment into the portal
+```
+
+### Desktop package for reviewers
+
+Use this when you want reviewers to test the full Electron workflow without installing Node.js or configuring environment variables locally.
+
+```
+# From Windows
+npm.cmd install
+npm.cmd run package:win
+```
+
+Build artifacts are written to:
+
+```
+release/
+```
+
+Recommended reviewer handoff:
+
+```
+# 1. Send the Vercel URL for the quick prototype walkthrough.
+# 2. Send the Windows installer or portable .exe from release/ for the full workflow.
+# 3. Reviewers only need the packaged app; they do not need npm, Node.js, or a local .env file.
+```
+
 ## Development Guidelines
 
 ### How to edit code locally?
@@ -80,6 +129,14 @@ Alternatively, use the official installer: Visit the Node.js official website. D
 # Step 4: In the IDE terminal, run the command to install dependencies: npm i
 # Step 5: In the IDE terminal, run the command to start the development server: npm run dev -- --host 127.0.0.1
 # Step 6: if step 5 failed, try this command to start the development server: npx vite --host 127.0.0.1
+```
+
+### Packaging notes
+
+```
+# VITE_* values are compiled into both the Vercel build and the packaged Electron app.
+# That is convenient for reviewers, but do not ship unrestricted secrets this way.
+# In particular, move Gemini usage behind a server endpoint before a public launch.
 ```
 
 ### How to develop backend services?

@@ -21,6 +21,8 @@
         "noUncheckedSideEffectImports": true
     },
     "include": [
-        "vite.config.ts"
+        "vite.config.mts",
+        "vite.shared.mts",
+        "vite.web.config.mts"
     ]
 }

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="PublishKaro">
+  <rect width="64" height="64" rx="14" fill="#0f172a" />
+  <path d="M18 16h16c8.837 0 16 7.163 16 16s-7.163 16-16 16H18V16Z" fill="#f59e0b" />
+  <path d="M18 22h15c5.523 0 10 4.477 10 10s-4.477 10-10 10H18V22Z" fill="#f8fafc" />
+  <path d="M18 30h14.5c3.59 0 6.5-2.91 6.5-6.5S36.09 17 32.5 17H18v13Z" fill="#fb923c" opacity="0.9" />
+</svg>
