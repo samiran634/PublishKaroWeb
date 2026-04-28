@@ -1,19 +1,19 @@
-import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { supabase } from '@/db/supabase';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Code, Database, ExternalLink, File, FileText, Library, Plus, Search, StickyNote, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
-import { Plus, Search, FileText, Database, Code, StickyNote, File, ExternalLink, Trash2, Library } from 'lucide-react';
-import { toast } from 'sonner';
-import type { Resource, ResourceType } from '@/types/types';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/db/supabase';
+import type { Resource, ResourceType } from '@/types/types';
 
 const resourceIcons: Record<ResourceType, typeof FileText> = {
   Reference: FileText,
@@ -170,7 +170,7 @@ export default function ResourceInventory() {
 
   const deleteResource = async (id: string, fileUrl: string | null) => {
     try {
-      if (fileUrl) {
+      if (fileUrl && fileUrl.includes('/storage/v1/object/public/resources/')) {
         const fileName = fileUrl.split('/').pop();
         if (fileName) {
           await supabase.storage.from('resources').remove([fileName]);

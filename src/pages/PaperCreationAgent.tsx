@@ -1,19 +1,29 @@
+import {
+  BookmarkPlus,
+  BookOpen,
+  Check,
+  CheckCircle2,
+  ExternalLink,
+  Library,
+  Loader2,
+  Search,
+  Sparkles,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/db/supabase';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Sparkles, Loader2, CheckCircle2, BookOpen, Search } from 'lucide-react';
-import { toast } from 'sonner';
-import type { Resource } from '@/types/types';
+import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/db/supabase';
+import type { Resource } from '@/types/types';
 
 interface GeneratedPaper {
   abstract: string;
@@ -49,10 +59,11 @@ export default function PaperCreationAgent() {
   const [generatedPaper, setGeneratedPaper] = useState<GeneratedPaper | null>(null);
   const [scholarPapers, setScholarPapers] = useState<ScholarPaper[]>([]);
   const [searchingScholar, setSearchingScholar] = useState(false);
+  const [savingScholarLinks, setSavingScholarLinks] = useState<Set<string>>(new Set());
   const [currentStep, setCurrentStep] = useState<'configure' | 'generate' | 'review'>('configure');
 
   useEffect(() => {
-    loadResources();
+    void loadResources();
   }, []);
 
   const loadResources = async () => {
@@ -70,27 +81,57 @@ export default function PaperCreationAgent() {
   };
 
   const toggleResource = (resourceId: string) => {
-    setSelectedResources(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(resourceId)) {
-        newSet.delete(resourceId);
+    setSelectedResources((prev) => {
+      const next = new Set(prev);
+      if (next.has(resourceId)) {
+        next.delete(resourceId);
       } else {
-        newSet.add(resourceId);
+        next.add(resourceId);
       }
-      return newSet;
+      return next;
     });
   };
 
   const addKeyword = () => {
-    if (keywordInput.trim() && !keywords.includes(keywordInput.trim())) {
-      setKeywords([...keywords, keywordInput.trim()]);
+    const nextKeyword = keywordInput.trim();
+    if (nextKeyword && !keywords.includes(nextKeyword)) {
+      setKeywords((prev) => [...prev, nextKeyword]);
       setKeywordInput('');
     }
   };
 
   const removeKeyword = (keyword: string) => {
-    setKeywords(keywords.filter(k => k !== keyword));
+    setKeywords((prev) => prev.filter((item) => item !== keyword));
   };
+
+  const getScholarResourceMatch = (paper: ScholarPaper) =>
+    resources.find(
+      (resource) =>
+        resource.file_url === paper.link ||
+        (resource.name === paper.title && resource.tags?.includes('google-scholar'))
+    );
+
+  const buildScholarResourcePayload = (paper: ScholarPaper) => ({
+    name: paper.title,
+    type: 'Reference' as const,
+    description: [
+      `${paper.authors}${paper.year ? ` (${paper.year})` : ''}`,
+      paper.snippet,
+      `Source: ${paper.source}`,
+      `Cited by: ${paper.citedBy}`,
+    ]
+      .filter(Boolean)
+      .join(' | '),
+    tags: Array.from(
+      new Set([
+        'google-scholar',
+        'reference',
+        ...keywords.map((keyword) => keyword.trim().toLowerCase()).filter(Boolean),
+      ])
+    ),
+    file_url: paper.link || null,
+    user_id: user?.id,
+  });
 
   const searchScholar = async () => {
     if (keywords.length === 0) {
@@ -117,9 +158,88 @@ export default function PaperCreationAgent() {
       }
     } catch (error) {
       console.error('Scholar search error:', error);
-      toast.error('Failed to search Google Scholar');
+      toast.error('Failed to search Google Scholar from Supabase.');
     } finally {
       setSearchingScholar(false);
+    }
+  };
+
+  const saveScholarPaperToInventory = async (paper: ScholarPaper) => {
+    const existingResource = getScholarResourceMatch(paper);
+    if (existingResource) {
+      setSelectedResources((prev) => {
+        const next = new Set(prev);
+        next.add(existingResource.id);
+        return next;
+      });
+      toast.info('This Google Scholar reference is already saved in Resource Inventory.');
+      return;
+    }
+
+    setSavingScholarLinks((prev) => new Set(prev).add(paper.link));
+    try {
+      const { data, error } = await supabase
+        .from('resources')
+        .insert([buildScholarResourcePayload(paper)])
+        .select()
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setResources((prev) => [data, ...prev]);
+        setSelectedResources((prev) => {
+          const next = new Set(prev);
+          next.add(data.id);
+          return next;
+        });
+      }
+
+      toast.success('Google Scholar paper saved to Resource Inventory.');
+    } catch (error) {
+      console.error('Error saving scholar paper:', error);
+      toast.error('Failed to save Google Scholar paper to Resource Inventory.');
+    } finally {
+      setSavingScholarLinks((prev) => {
+        const next = new Set(prev);
+        next.delete(paper.link);
+        return next;
+      });
+    }
+  };
+
+  const saveAllScholarPapersToInventory = async () => {
+    const unsavedPapers = scholarPapers.filter((paper) => !getScholarResourceMatch(paper));
+    if (unsavedPapers.length === 0) {
+      toast.info('All visible Google Scholar papers are already in Resource Inventory.');
+      return;
+    }
+
+    setSavingScholarLinks(new Set(unsavedPapers.map((paper) => paper.link)));
+    try {
+      const { data, error } = await supabase
+        .from('resources')
+        .insert(unsavedPapers.map(buildScholarResourcePayload))
+        .select();
+
+      if (error) throw error;
+
+      const savedResources = Array.isArray(data) ? data : [];
+      setResources((prev) => [...savedResources, ...prev]);
+      setSelectedResources((prev) => {
+        const next = new Set(prev);
+        for (const resource of savedResources) {
+          next.add(resource.id);
+        }
+        return next;
+      });
+
+      toast.success(`${savedResources.length} Google Scholar references saved to Resource Inventory.`);
+    } catch (error) {
+      console.error('Error saving scholar papers:', error);
+      toast.error('Failed to save Google Scholar references to Resource Inventory.');
+    } finally {
+      setSavingScholarLinks(new Set());
     }
   };
 
@@ -143,17 +263,17 @@ export default function PaperCreationAgent() {
     setCurrentStep('generate');
 
     try {
-      const selectedResourceData = resources.filter(r => selectedResources.has(r.id));
+      const selectedResourceData = resources.filter((resource) => selectedResources.has(resource.id));
 
       const { data, error } = await supabase.functions.invoke('generate-paper', {
         body: {
           title,
           keywords,
-          resources: selectedResourceData.map(r => ({
-            id: r.id,
-            name: r.name,
-            type: r.type,
-            description: r.description,
+          resources: selectedResourceData.map((resource) => ({
+            id: resource.id,
+            name: resource.name,
+            type: resource.type,
+            description: resource.description,
           })),
           targetVenue,
         },
@@ -185,15 +305,17 @@ export default function PaperCreationAgent() {
 
       const { data, error } = await supabase
         .from('papers')
-        .insert([{
-          title,
-          abstract: generatedPaper.abstract,
-          content: fullContent,
-          keywords,
-          authors: [],
-          status: 'Draft',
-          user_id: user?.id,
-        }])
+        .insert([
+          {
+            title,
+            abstract: generatedPaper.abstract,
+            content: fullContent,
+            keywords,
+            authors: [],
+            status: 'Draft',
+            user_id: user?.id,
+          },
+        ])
         .select()
         .maybeSingle();
 
@@ -212,7 +334,8 @@ export default function PaperCreationAgent() {
       <div className="space-y-2">
         <h2 className="text-3xl font-medium tracking-tight">Paper Creation Agent</h2>
         <p className="text-muted-foreground">
-          AI-powered paper generation from your resource inventory
+          AI-powered paper generation from your Resource Inventory, with Google Scholar references
+          that can be stored in Supabase and reused.
         </p>
       </div>
 
@@ -230,7 +353,7 @@ export default function PaperCreationAgent() {
                   <Input
                     id="paper-title"
                     value={title}
-                    onChange={(e) => setTitle(e.target.value)}
+                    onChange={(event) => setTitle(event.target.value)}
                     placeholder="Enter your paper title"
                   />
                 </div>
@@ -240,8 +363,8 @@ export default function PaperCreationAgent() {
                   <div className="flex gap-2">
                     <Input
                       value={keywordInput}
-                      onChange={(e) => setKeywordInput(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addKeyword())}
+                      onChange={(event) => setKeywordInput(event.target.value)}
+                      onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), addKeyword())}
                       placeholder="Add keyword"
                     />
                     <Button type="button" onClick={addKeyword} variant="outline">
@@ -250,8 +373,13 @@ export default function PaperCreationAgent() {
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {keywords.map((keyword) => (
-                      <Badge key={keyword} variant="secondary" className="cursor-pointer" onClick={() => removeKeyword(keyword)}>
-                        {keyword} ×
+                      <Badge
+                        key={keyword}
+                        variant="secondary"
+                        className="cursor-pointer"
+                        onClick={() => removeKeyword(keyword)}
+                      >
+                        {keyword} x
                       </Badge>
                     ))}
                   </div>
@@ -262,14 +390,14 @@ export default function PaperCreationAgent() {
                   <Input
                     id="target-venue"
                     value={targetVenue}
-                    onChange={(e) => setTargetVenue(e.target.value)}
+                    onChange={(event) => setTargetVenue(event.target.value)}
                     placeholder="e.g., IEEE Conference, Nature Journal"
                   />
                 </div>
 
                 <Separator />
 
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-3">
                   <Button onClick={searchScholar} disabled={searchingScholar || keywords.length === 0}>
                     {searchingScholar ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -277,6 +405,10 @@ export default function PaperCreationAgent() {
                       <Search className="mr-2 h-4 w-4" />
                     )}
                     Search Related Papers
+                  </Button>
+                  <Button variant="outline" onClick={() => navigate('/resources')}>
+                    <Library className="mr-2 h-4 w-4" />
+                    Open Resource Inventory
                   </Button>
                 </div>
               </CardContent>
@@ -300,7 +432,7 @@ export default function PaperCreationAgent() {
                 ) : (
                   <div className="space-y-3 max-h-96 overflow-y-auto">
                     {resources.map((resource) => (
-                      <div key={resource.id} className="flex items-start gap-3 p-3 border rounded-lg">
+                      <div key={resource.id} className="flex items-start gap-3 rounded-lg border p-3">
                         <Checkbox
                           checked={selectedResources.has(resource.id)}
                           onCheckedChange={() => toggleResource(resource.id)}
@@ -310,7 +442,16 @@ export default function PaperCreationAgent() {
                           <p className="text-xs text-muted-foreground">
                             {resource.description || 'No description'}
                           </p>
-                          <Badge variant="outline" className="text-xs">{resource.type}</Badge>
+                          <div className="flex flex-wrap gap-2">
+                            <Badge variant="outline" className="text-xs">
+                              {resource.type}
+                            </Badge>
+                            {resource.tags?.includes('google-scholar') && (
+                              <Badge variant="secondary" className="text-xs">
+                                Google Scholar
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -330,15 +471,15 @@ export default function PaperCreationAgent() {
                   <p className="text-sm text-muted-foreground">
                     The AI will generate a complete academic paper with:
                   </p>
-                  <ul className="text-sm space-y-1 text-muted-foreground">
-                    <li>• Abstract</li>
-                    <li>• Introduction</li>
-                    <li>• Literature Review</li>
-                    <li>• Methodology</li>
-                    <li>• Results</li>
-                    <li>• Discussion</li>
-                    <li>• Conclusion</li>
-                    <li>• References</li>
+                  <ul className="space-y-1 text-sm text-muted-foreground">
+                    <li>- Abstract</li>
+                    <li>- Introduction</li>
+                    <li>- Literature Review</li>
+                    <li>- Methodology</li>
+                    <li>- Results</li>
+                    <li>- Discussion</li>
+                    <li>- Conclusion</li>
+                    <li>- References</li>
                   </ul>
                 </div>
                 <Separator />
@@ -356,19 +497,60 @@ export default function PaperCreationAgent() {
             {scholarPapers.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg font-medium">Related Papers</CardTitle>
-                  <CardDescription>From Google Scholar</CardDescription>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <CardTitle className="text-lg font-medium">Related Papers</CardTitle>
+                      <CardDescription>
+                        From Google Scholar and ready to save into Supabase Resource Inventory
+                      </CardDescription>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={saveAllScholarPapersToInventory}>
+                      <BookmarkPlus className="mr-2 h-4 w-4" />
+                      Save all
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {scholarPapers.map((paper, index) => (
-                      <div key={index} className="pb-3 border-b last:border-0">
-                        <p className="text-sm font-medium line-clamp-2">{paper.title}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {paper.authors} • {paper.year} • Cited by {paper.citedBy}
-                        </p>
-                      </div>
-                    ))}
+                    {scholarPapers.map((paper, index) => {
+                      const savedResource = getScholarResourceMatch(paper);
+                      const isSaving = savingScholarLinks.has(paper.link);
+
+                      return (
+                        <div key={`${paper.link}-${index}`} className="border-b pb-3 last:border-0">
+                          <p className="text-sm font-medium line-clamp-2">{paper.title}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {paper.authors} | {paper.year} | Cited by {paper.citedBy}
+                          </p>
+                          <p className="mt-1 line-clamp-3 text-xs text-muted-foreground">{paper.snippet}</p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => void saveScholarPaperToInventory(paper)}
+                              disabled={isSaving}
+                            >
+                              {isSaving ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : savedResource ? (
+                                <Check className="mr-2 h-4 w-4" />
+                              ) : (
+                                <BookmarkPlus className="mr-2 h-4 w-4" />
+                              )}
+                              {savedResource ? 'Saved to inventory' : 'Save to inventory'}
+                            </Button>
+                            {paper.link && (
+                              <Button variant="ghost" size="sm" asChild>
+                                <a href={paper.link} target="_blank" rel="noopener noreferrer">
+                                  <ExternalLink className="mr-2 h-4 w-4" />
+                                  Open source
+                                </a>
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>
@@ -380,8 +562,8 @@ export default function PaperCreationAgent() {
       {currentStep === 'generate' && (
         <Card>
           <CardContent className="py-16 text-center">
-            <Loader2 className="h-16 w-16 animate-spin mx-auto text-primary mb-4" />
-            <h3 className="text-lg font-medium mb-2">Generating Your Paper</h3>
+            <Loader2 className="mx-auto mb-4 h-16 w-16 animate-spin text-primary" />
+            <h3 className="mb-2 text-lg font-medium">Generating Your Paper</h3>
             <p className="text-sm text-muted-foreground">
               AI is analyzing your resources and creating a structured academic paper...
             </p>
@@ -410,9 +592,11 @@ export default function PaperCreationAgent() {
           <Card>
             <CardHeader>
               <CardTitle className="text-xl font-medium">{title}</CardTitle>
-              <div className="flex flex-wrap gap-2 mt-2">
+              <div className="mt-2 flex flex-wrap gap-2">
                 {keywords.map((keyword) => (
-                  <Badge key={keyword} variant="secondary">{keyword}</Badge>
+                  <Badge key={keyword} variant="secondary">
+                    {keyword}
+                  </Badge>
                 ))}
               </div>
             </CardHeader>
@@ -429,7 +613,9 @@ export default function PaperCreationAgent() {
                     <h4 className="font-medium">Abstract</h4>
                     <Textarea
                       value={generatedPaper.abstract}
-                      onChange={(e) => setGeneratedPaper({ ...generatedPaper, abstract: e.target.value })}
+                      onChange={(event) =>
+                        setGeneratedPaper({ ...generatedPaper, abstract: event.target.value })
+                      }
                       rows={6}
                     />
                   </div>
@@ -439,7 +625,9 @@ export default function PaperCreationAgent() {
                     <h4 className="font-medium">Introduction</h4>
                     <Textarea
                       value={generatedPaper.introduction}
-                      onChange={(e) => setGeneratedPaper({ ...generatedPaper, introduction: e.target.value })}
+                      onChange={(event) =>
+                        setGeneratedPaper({ ...generatedPaper, introduction: event.target.value })
+                      }
                       rows={12}
                     />
                   </div>
@@ -447,7 +635,12 @@ export default function PaperCreationAgent() {
                     <h4 className="font-medium">Literature Review</h4>
                     <Textarea
                       value={generatedPaper.literature_review}
-                      onChange={(e) => setGeneratedPaper({ ...generatedPaper, literature_review: e.target.value })}
+                      onChange={(event) =>
+                        setGeneratedPaper({
+                          ...generatedPaper,
+                          literature_review: event.target.value,
+                        })
+                      }
                       rows={12}
                     />
                   </div>
@@ -457,7 +650,9 @@ export default function PaperCreationAgent() {
                     <h4 className="font-medium">Methodology</h4>
                     <Textarea
                       value={generatedPaper.methodology}
-                      onChange={(e) => setGeneratedPaper({ ...generatedPaper, methodology: e.target.value })}
+                      onChange={(event) =>
+                        setGeneratedPaper({ ...generatedPaper, methodology: event.target.value })
+                      }
                       rows={12}
                     />
                   </div>
@@ -467,7 +662,9 @@ export default function PaperCreationAgent() {
                     <h4 className="font-medium">Results</h4>
                     <Textarea
                       value={generatedPaper.results}
-                      onChange={(e) => setGeneratedPaper({ ...generatedPaper, results: e.target.value })}
+                      onChange={(event) =>
+                        setGeneratedPaper({ ...generatedPaper, results: event.target.value })
+                      }
                       rows={12}
                     />
                   </div>
@@ -475,7 +672,9 @@ export default function PaperCreationAgent() {
                     <h4 className="font-medium">Discussion</h4>
                     <Textarea
                       value={generatedPaper.discussion}
-                      onChange={(e) => setGeneratedPaper({ ...generatedPaper, discussion: e.target.value })}
+                      onChange={(event) =>
+                        setGeneratedPaper({ ...generatedPaper, discussion: event.target.value })
+                      }
                       rows={12}
                     />
                   </div>
@@ -483,15 +682,19 @@ export default function PaperCreationAgent() {
                     <h4 className="font-medium">Conclusion</h4>
                     <Textarea
                       value={generatedPaper.conclusion}
-                      onChange={(e) => setGeneratedPaper({ ...generatedPaper, conclusion: e.target.value })}
+                      onChange={(event) =>
+                        setGeneratedPaper({ ...generatedPaper, conclusion: event.target.value })
+                      }
                       rows={8}
                     />
                   </div>
                   <div className="space-y-2">
                     <h4 className="font-medium">References</h4>
                     <div className="space-y-2">
-                      {generatedPaper.references.map((ref, index) => (
-                        <p key={index} className="text-sm">{index + 1}. {ref}</p>
+                      {generatedPaper.references.map((reference, index) => (
+                        <p key={index} className="text-sm">
+                          {index + 1}. {reference}
+                        </p>
                       ))}
                     </div>
                   </div>

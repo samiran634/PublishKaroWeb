@@ -1,14 +1,18 @@
-import Dashboard from './pages/Dashboard';
-import PaperPage from './pages/PaperPage';
-import PaperEditor from './pages/PaperEditor';
-import PublicationDashboard from './pages/PublicationDashboard';
-// Cleaned up for desktop edition
-import SubmissionAgent from './pages/SubmissionAgent';
+import type { ReactNode } from 'react';
+import BottleneckMonitor from './pages/BottleneckMonitor';
 import CredentialVault from './pages/CredentialVault';
-import PaperCreationAgent from './pages/PaperCreationAgent';
+import Dashboard from './pages/Dashboard';
 import EmailMonitor from './pages/EmailMonitor';
 import Login from './pages/Login';
-import type { ReactNode } from 'react';
+import PaperCreationAgent from './pages/PaperCreationAgent';
+import PaperEditor from './pages/PaperEditor';
+import PaperPage from './pages/PaperPage';
+import PublicationDashboard from './pages/PublicationDashboard';
+import PublicationDomains from './pages/PublicationDomains';
+import ResourceInventory from './pages/Resourceinventory';
+import SkillMarketplace from './pages/SkillMarketplace';
+import SubmissionAgent from './pages/SubmissionAgent';
+import SubmissionOptimizer from './pages/SubmissionOptimizer';
 
 export interface RouteConfig {
     name: string;
@@ -27,7 +31,7 @@ export const routes: RouteConfig[] = [
         public: true,
     },
     {
-        name: 'Dashboard',
+        name: 'Command Centre',
         path: '/',
         element: <Dashboard />,
     },
@@ -37,22 +41,27 @@ export const routes: RouteConfig[] = [
         element: <PaperPage />,
     },
     {
+        name: 'Resource Inventory',
+        path: '/resources',
+        element: <ResourceInventory />,
+    },
+    {
         name: 'Paper Editor',
         path: '/papers/:id',
         element: <PaperEditor />,
     },
     {
-        name: 'Paper Creation Agent',
+        name: 'AI Research Agent',
         path: '/paper-creation',
         element: <PaperCreationAgent />,
     },
     {
-        name: 'Publication Dashboard',
+        name: 'Venues & Journals',
         path: '/publications',
         element: <PublicationDashboard />,
     },
     {
-        name: 'Submission Agent',
+        name: 'Submission Tracker',
         path: '/submission-agent',
         element: <SubmissionAgent />,
     },
@@ -62,8 +71,29 @@ export const routes: RouteConfig[] = [
         element: <CredentialVault />,
     },
     {
-        name: 'Email Monitor',
+        name: 'Publication Sender Domains',
+        path: '/publication-domains',
+        element: <PublicationDomains />,
+    },
+    {
+        name: 'Paper Submitter Helper',
         path: '/email-monitor',
         element: <EmailMonitor />,
+    },
+    // ── Smart Allocation Routes ──────────────────────────
+    {
+        name: 'Best Slot to Apply',
+        path: '/optimizer',
+        element: <SubmissionOptimizer />,
+    },
+    {
+        name: 'Skill Marketplace',
+        path: '/marketplace',
+        element: <SkillMarketplace />,
+    },
+    {
+        name: 'Research Flow Monitor',
+        path: '/bottleneck',
+        element: <BottleneckMonitor />,
     },
 ];

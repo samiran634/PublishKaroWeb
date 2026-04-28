@@ -1,15 +1,15 @@
-import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { supabase } from '@/db/supabase';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Edit, Globe, Loader2, Mail, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
-import { Globe, Plus, Trash2, Edit, Mail, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { supabase } from '@/db/supabase';
 import type { PublicationDomain } from '@/types/types';
 
 const containerVariants = {
@@ -203,9 +203,9 @@ export default function PublicationDomains() {
     >
       <div className="flex items-start justify-between">
         <div className="space-y-2">
-          <h2 className="text-3xl font-medium tracking-tight">Publication Domains</h2>
+          <h2 className="text-3xl font-medium tracking-tight">Publication Sender Domains</h2>
           <p className="text-muted-foreground">
-            Manage publication domains and their official email addresses
+            Configure the sender domains and official publication emails the monitoring agent should look for in the researcher's mailbox.
           </p>
         </div>
 
@@ -218,9 +218,9 @@ export default function PublicationDomains() {
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Add Publication Domain</DialogTitle>
+              <DialogTitle>Add Publication Sender Domain</DialogTitle>
               <DialogDescription>
-                Add a new publication domain and extract official email addresses
+                Add the publication's sender domain and the official email addresses that usually send submission updates.
               </DialogDescription>
             </DialogHeader>
 
@@ -236,7 +236,7 @@ export default function PublicationDomains() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="domain">Domain *</Label>
+                <Label htmlFor="domain">Sender Domain *</Label>
                 <Input
                   id="domain"
                   placeholder="e.g., ieee.org"
@@ -292,10 +292,10 @@ export default function PublicationDomains() {
               )}
 
               <div className="space-y-2">
-                <Label>Official Email Addresses</Label>
+                <Label>Official Sender Email Addresses</Label>
                 <div className="flex gap-2">
                   <Input
-                    placeholder="Add email manually"
+                    placeholder="editor@journal.org"
                     value={emailInput}
                     onChange={(e) => setEmailInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleAddEmail()}
@@ -336,7 +336,7 @@ export default function PublicationDomains() {
             <Globe className="h-16 w-16 text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">No publication domains yet</h3>
             <p className="text-muted-foreground text-center mb-4">
-              Add your first publication domain to start monitoring email statuses
+              Add the sender domains and official publication emails you want the monitoring agent to detect in the researcher's mailbox.
             </p>
             <Button onClick={() => setIsDialogOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />

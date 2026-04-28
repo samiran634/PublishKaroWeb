@@ -20,14 +20,19 @@ export default defineConfig({
                 // Shortcut of `build.lib.entry`
                 entry: 'electron/main.ts',
                 onstart({ startup }) {
-                    // Pass GPU-disable flags directly to the Electron process so they take
-                    // effect before Chromium's GPU subprocess spawns (fixes Haswell crash)
+                    // GPU flags for Haswell/older hardware crash fix.
+                    // --disable-gpu: prevent hardware GPU process crash
+                    // --in-process-gpu: run GPU in main process (avoids GPU subprocess crash)
+                    // --disable-gpu-sandbox: needed alongside no-sandbox
+                    // NOTE: Do NOT add --disable-software-rasterizer — that kills SwiftShader
+                    //       which is the software fallback. Without it, WebContentsView gets
+                    //       kFatalFailure and can't render anything (not even localhost!).
+                    // NOTE: Do NOT add --disable-gpu-compositing — app.disableHardwareAcceleration()
+                    //       in main.ts already handles this correctly.
                     startup([
                         '.',
                         '--no-sandbox',
                         '--disable-gpu',
-                        '--disable-gpu-compositing',
-                        '--disable-software-rasterizer',
                         '--disable-gpu-sandbox',
                         '--in-process-gpu',
                     ])

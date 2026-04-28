@@ -121,6 +121,23 @@
 }
 
 @layer utilities {
+    /* ResearchFlow — Resource Allocation Semantic Colors */
+    :root {
+        --fit-high: 142 76% 36%;   /* Green — high fit / good health */
+        --fit-mid: 38 92% 50%;     /* Amber — medium fit / warning */
+        --fit-low: 4 86% 58%;      /* Red — poor fit / bottleneck */
+        --skill-gap: 217 91% 60%;  /* Blue — open skill needs */
+    }
+
+    .fit-high { color: hsl(var(--fit-high)); }
+    .fit-mid  { color: hsl(var(--fit-mid)); }
+    .fit-low  { color: hsl(var(--fit-low)); }
+
+    .bg-fit-high { background-color: hsl(var(--fit-high) / 0.12); border-color: hsl(var(--fit-high) / 0.3); }
+    .bg-fit-mid  { background-color: hsl(var(--fit-mid) / 0.12);  border-color: hsl(var(--fit-mid) / 0.3); }
+    .bg-fit-low  { background-color: hsl(var(--fit-low) / 0.12);  border-color: hsl(var(--fit-low) / 0.3); }
+    .bg-skill-gap { background-color: hsl(var(--skill-gap) / 0.12); border-color: hsl(var(--skill-gap) / 0.3); }
+
     .glass-card {
         background: rgba(255, 255, 255, 0.7);
         backdrop-filter: blur(10px);
@@ -139,6 +156,10 @@
 
     .animate-glow {
         animation: glow 2s ease-in-out infinite alternate;
+    }
+
+    .animate-pulse-slow {
+        animation: pulse-slow 3s ease-in-out infinite;
     }
 
     .animate-shimmer {
@@ -202,6 +223,11 @@
     100% {
         background-position: 200% 0;
     }
+}
+
+@keyframes pulse-slow {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.7; transform: scale(1.04); }
 }
 
 @keyframes slideInFromBottom {

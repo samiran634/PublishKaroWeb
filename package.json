@@ -3,7 +3,7 @@
     "version": "0.0.1",
     "main": "dist-electron/main.js",
     "scripts": {
-        "dev": "LIBVA_DRIVER_NAME=i965 ELECTRON_EXTRA_LAUNCH_ARGS='--disable-gpu --no-sandbox --disable-software-rasterizer --disable-gpu-compositing --in-process-gpu' vite",
+        "dev": "vite",
         "build": "vite build",
         "preview": "vite preview",
         "lint": "npx biome lint"
@@ -88,6 +88,7 @@
         "@typescript/native-preview": "7.0.0-dev.20260303.1",
         "@vitejs/plugin-react": "^5.1.4",
         "autoprefixer": "^10.4.27",
+        "cross-env": "^7.0.3",
         "electron": "^41.3.0",
         "playwright": "^1.59.1",
         "postcss": "^8.5.6",

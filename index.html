@@ -5,6 +5,26 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Content-Security-Policy:
+      - 'unsafe-eval' is required for Vite dev HMR & React fast-refresh.
+      - 'unsafe-inline' is required for injected styles (Radix, CSS-in-JS).
+      - connect-src * allows Supabase, Edge Functions, and localhost API calls.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="
+        default-src 'self';
+        script-src 'self' 'unsafe-inline' 'unsafe-eval';
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+        font-src 'self' https://fonts.gstatic.com data:;
+        img-src 'self' data: blob: https:;
+        connect-src 'self' * ws: wss:;
+        frame-src 'none';
+        object-src 'none';
+      "
+    />
+    <title>PublishKaro</title>
 </head>
 
 <body>

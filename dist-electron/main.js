@@ -1,13 +1,29 @@
 "use strict";
 Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 const electron = require("electron");
-const node_module = require("node:module");
+const fs = require("node:fs");
 const node_url = require("node:url");
 const path = require("node:path");
 const require$$0$1 = require("tty");
 const require$$1 = require("util");
-const fs = require("node:fs");
 var _documentCurrentScript = typeof document !== "undefined" ? document.currentScript : null;
+function _interopNamespaceDefault(e) {
+  const n = Object.create(null, { [Symbol.toStringTag]: { value: "Module" } });
+  if (e) {
+    for (const k in e) {
+      if (k !== "default") {
+        const d = Object.getOwnPropertyDescriptor(e, k);
+        Object.defineProperty(n, k, d.get ? d : {
+          enumerable: true,
+          get: () => e[k]
+        });
+      }
+    }
+  }
+  n.default = e;
+  return Object.freeze(n);
+}
+const fs__namespace = /* @__PURE__ */ _interopNamespaceDefault(fs);
 function getDefaultExportFromCjs(x) {
   return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, "default") ? x["default"] : x;
 }
@@ -2091,14 +2107,9 @@ async function runSubmission(data, sendProgress) {
     return { success: false, error: error.message };
   }
 }
-node_module.createRequire(typeof document === "undefined" ? require("url").pathToFileURL(__filename).href : _documentCurrentScript && _documentCurrentScript.tagName.toUpperCase() === "SCRIPT" && _documentCurrentScript.src || new URL("main.js", document.baseURI).href);
 const __dirname$1 = path.dirname(node_url.fileURLToPath(typeof document === "undefined" ? require("url").pathToFileURL(__filename).href : _documentCurrentScript && _documentCurrentScript.tagName.toUpperCase() === "SCRIPT" && _documentCurrentScript.src || new URL("main.js", document.baseURI).href));
 process.env.APP_ROOT = path.join(__dirname$1, "..");
 electron.app.disableHardwareAcceleration();
-electron.app.commandLine.appendSwitch("disable-gpu");
-electron.app.commandLine.appendSwitch("disable-software-rasterizer");
-electron.app.commandLine.appendSwitch("disable-gpu-compositing");
-electron.app.commandLine.appendSwitch("disable-gpu-rasterization");
 electron.app.commandLine.appendSwitch("disable-gpu-sandbox");
 electron.app.commandLine.appendSwitch("no-sandbox");
 const VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
@@ -2107,6 +2118,101 @@ const RENDERER_DIST = path.join(process.env.APP_ROOT, "dist");
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, "public") : RENDERER_DIST;
 let win;
 let embeddedView = null;
+let embeddedOwnerId = null;
+async function attachFileToPortalInput(targetContents, filePath) {
+  if (!filePath || !fs__namespace.existsSync(filePath)) {
+    return {
+      success: false,
+      reason: "The selected manuscript PDF could not be found on disk."
+    };
+  }
+  const selector = await targetContents.executeJavaScript(`
+    (() => {
+      const isVisible = (element) => {
+        if (!(element instanceof HTMLElement)) return false;
+        const style = window.getComputedStyle(element);
+        return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0' && element.offsetParent !== null;
+      };
+      const inputs = Array.from(document.querySelectorAll('input[type="file"]'));
+      for (const input of inputs) {
+        input.removeAttribute('data-publishkaro-upload-target');
+      }
+      const bestInput = inputs.find(isVisible) || inputs[0];
+      if (!bestInput) return '';
+      bestInput.setAttribute('data-publishkaro-upload-target', 'true');
+      return 'input[data-publishkaro-upload-target="true"]';
+    })();
+  `, true);
+  if (!selector) {
+    return {
+      success: false,
+      reason: "Could not find a file upload input on the current portal page."
+    };
+  }
+  const debuggerWasAttached = targetContents.debugger.isAttached();
+  if (!debuggerWasAttached) {
+    targetContents.debugger.attach("1.3");
+  }
+  try {
+    const { root } = await targetContents.debugger.sendCommand("DOM.getDocument", { depth: -1, pierce: true });
+    const { nodeId } = await targetContents.debugger.sendCommand("DOM.querySelector", {
+      nodeId: root.nodeId,
+      selector
+    });
+    if (!nodeId) {
+      return {
+        success: false,
+        reason: "Could not target the manuscript upload input on the current portal page."
+      };
+    }
+    await targetContents.debugger.sendCommand("DOM.setFileInputFiles", {
+      nodeId,
+      files: [filePath]
+    });
+    await targetContents.executeJavaScript(`
+      (() => {
+        const input = document.querySelector('input[data-publishkaro-upload-target="true"]');
+        if (!(input instanceof HTMLInputElement)) return '';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        return input.files?.[0]?.name || '';
+      })();
+    `, true);
+    return {
+      success: true,
+      fileName: path.basename(filePath)
+    };
+  } catch (error) {
+    return {
+      success: false,
+      reason: error.message ?? "Could not attach the manuscript PDF to the portal upload field."
+    };
+  } finally {
+    if (!debuggerWasAttached && targetContents.debugger.isAttached()) {
+      targetContents.debugger.detach();
+    }
+  }
+}
+function sendEmbeddedStatus(status) {
+  if (embeddedOwnerId == null) return;
+  const ownerWindow = electron.BrowserWindow.getAllWindows().find(
+    (browserWindow) => browserWindow.webContents.id === embeddedOwnerId
+  );
+  ownerWindow == null ? void 0 : ownerWindow.webContents.send("webcontents-status", status);
+}
+function destroyEmbeddedView(mainWindow, notify = true) {
+  if (!embeddedView) return;
+  const ownerWindow = mainWindow ?? electron.BrowserWindow.getAllWindows().find((browserWindow) => browserWindow.contentView.children.includes(embeddedView));
+  if (ownerWindow) {
+    ownerWindow.contentView.removeChildView(embeddedView);
+  }
+  if (notify) {
+    sendEmbeddedStatus({ status: "destroyed" });
+  }
+  embeddedView.webContents.close();
+  embeddedView = null;
+  embeddedOwnerId = null;
+}
 function createWindow() {
   win = new electron.BrowserWindow({
     width: 1280,
@@ -2116,7 +2222,11 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname$1, "preload.mjs"),
       nodeIntegration: false,
-      contextIsolation: true
+      contextIsolation: true,
+      webviewTag: true,
+      // Allow loading http:// localhost resources without mixed-content blocking
+      allowRunningInsecureContent: true,
+      webSecurity: false
     }
   });
   win.webContents.on("did-finish-load", () => {
@@ -2161,54 +2271,106 @@ electron.app.whenReady().then(() => {
   electron.ipcMain.on("embed-webcontents", (event, payload) => {
     const mainWindow = electron.BrowserWindow.fromWebContents(event.sender);
     if (!mainWindow) return;
-    if (embeddedView) {
-      mainWindow.contentView.removeChildView(embeddedView);
-      embeddedView.webContents.close();
-      embeddedView = null;
-    }
-    mainWindow.getContentBounds();
+    destroyEmbeddedView(mainWindow, false);
     const { url, bounds } = payload;
     const absoluteBounds = {
-      x: Math.round(bounds.x),
-      y: Math.round(bounds.y),
-      width: Math.round(bounds.width),
-      height: Math.round(bounds.height)
+      x: Math.max(0, Math.round(bounds.x)),
+      y: Math.max(0, Math.round(bounds.y)),
+      width: Math.max(320, Math.round(bounds.width)),
+      height: Math.max(240, Math.round(bounds.height))
     };
     console.log(`[Main] Embedding WebContentsView at`, absoluteBounds, "loading:", url);
     embeddedView = new electron.WebContentsView({
       webPreferences: {
         nodeIntegration: false,
-        contextIsolation: true
+        contextIsolation: true,
+        webSecurity: false,
+        allowRunningInsecureContent: true
       }
     });
+    embeddedOwnerId = event.sender.id;
     mainWindow.contentView.addChildView(embeddedView);
     embeddedView.setBounds(absoluteBounds);
-    embeddedView.webContents.loadURL(url);
-    embeddedView.webContents.on("did-finish-load", () => {
-      event.sender.send("webcontents-status", { status: "loaded", url: embeddedView == null ? void 0 : embeddedView.webContents.getURL() });
+    embeddedView.webContents.setWindowOpenHandler(({ url: nextUrl }) => {
+      embeddedView == null ? void 0 : embeddedView.webContents.loadURL(nextUrl);
+      return { action: "deny" };
     });
-    embeddedView.webContents.on("did-fail-load", (_e, code, desc) => {
-      event.sender.send("webcontents-status", { status: "error", error: desc });
+    sendEmbeddedStatus({ status: "loading", url });
+    embeddedView.webContents.on("did-start-loading", () => {
+      sendEmbeddedStatus({
+        status: "loading",
+        url: (embeddedView == null ? void 0 : embeddedView.webContents.getURL()) || url
+      });
+    });
+    embeddedView.webContents.on("dom-ready", () => {
+      sendEmbeddedStatus({
+        status: "loaded",
+        url: (embeddedView == null ? void 0 : embeddedView.webContents.getURL()) || url
+      });
+    });
+    embeddedView.webContents.on("did-navigate-in-page", (_e, navUrl, isMainFrame) => {
+      if (isMainFrame) {
+        sendEmbeddedStatus({ status: "loaded", url: navUrl });
+      }
+    });
+    embeddedView.webContents.on("did-navigate", (_e, navUrl) => {
+      sendEmbeddedStatus({ status: "loaded", url: navUrl });
+    });
+    embeddedView.webContents.on("did-fail-load", (_e, code, desc, failedUrl, isMainFrame) => {
+      if (isMainFrame && code !== -3) {
+        sendEmbeddedStatus({
+          status: "error",
+          url: failedUrl,
+          error: `${desc} (${code})`
+        });
+      }
+    });
+    embeddedView.webContents.loadURL(url).catch((error) => {
+      sendEmbeddedStatus({ status: "error", url, error: error.message });
     });
   });
   electron.ipcMain.on("destroy-webcontents", (event) => {
     const mainWindow = electron.BrowserWindow.fromWebContents(event.sender);
     if (!mainWindow || !embeddedView) return;
-    mainWindow.contentView.removeChildView(embeddedView);
-    embeddedView.webContents.close();
-    embeddedView = null;
+    destroyEmbeddedView(mainWindow);
     console.log("[Main] WebContentsView destroyed");
-    event.sender.send("webcontents-status", { status: "destroyed" });
   });
   electron.ipcMain.on("resize-webcontents", (_event, bounds) => {
     if (embeddedView) {
       embeddedView.setBounds({
-        x: Math.round(bounds.x),
-        y: Math.round(bounds.y),
-        width: Math.round(bounds.width),
-        height: Math.round(bounds.height)
+        x: Math.max(0, Math.round(bounds.x)),
+        y: Math.max(0, Math.round(bounds.y)),
+        width: Math.max(320, Math.round(bounds.width)),
+        height: Math.max(240, Math.round(bounds.height))
       });
     }
+  });
+  electron.ipcMain.handle("pick-local-pdf", async (event) => {
+    const ownerWindow = electron.BrowserWindow.fromWebContents(event.sender) ?? win ?? void 0;
+    const result = await electron.dialog.showOpenDialog(ownerWindow, {
+      title: "Choose Manuscript PDF",
+      properties: ["openFile"],
+      filters: [
+        { name: "PDF Files", extensions: ["pdf"] }
+      ]
+    });
+    return result.canceled ? null : result.filePaths[0] ?? null;
+  });
+  electron.ipcMain.handle("attach-file-to-portal-input", async (_event, payload) => {
+    if (!(payload == null ? void 0 : payload.webContentsId)) {
+      return {
+        success: false,
+        reason: "Could not locate the embedded portal for file upload."
+      };
+    }
+    const targetContents = electron.webContents.fromId(payload.webContentsId);
+    if (!targetContents) {
+      return {
+        success: false,
+        reason: "The embedded portal is no longer available for file upload."
+      };
+    }
+    return attachFileToPortalInput(targetContents, payload.filePath);
   });
 });
 exports.MAIN_DIST = MAIN_DIST;
