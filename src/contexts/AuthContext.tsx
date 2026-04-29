@@ -32,6 +32,16 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function getAuthRedirectUrl() {
+    const configuredUrl = import.meta.env.VITE_AUTH_REDIRECT_URL?.trim();
+
+    if (configuredUrl) {
+        return configuredUrl.endsWith('/') ? configuredUrl : `${configuredUrl}/`;
+    }
+
+    return `${window.location.origin}/`;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [profile, setProfile] = useState<Profile | null>(null);
@@ -113,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                   redirectTo: `${window.location.origin}/`,
+                   redirectTo: getAuthRedirectUrl(),
                 }
             });
 
